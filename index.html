@@ -430,7 +430,11 @@
         <p style="font-size:0.82rem;"><span class="req" aria-hidden="true" style="margin-left:0;">*</span> Required</p>
       </div>
 
-      <form class="form-grid" id="intake-form">
+      <form class="form-grid" id="intake-form" name="intake" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field">
+        <input type="hidden" name="form-name" value="intake">
+        <p hidden>
+          <label>Don't fill this out if you're human: <input name="bot-field"></label>
+        </p>
 
         <div class="card">
           <div class="card-title">
@@ -646,15 +650,36 @@
     return "New request from the Marks Fit website:\n\n" + lines.join("\n");
   }
 
+  function encodeFormData(data){
+    return Object.keys(data).map(function(key){
+      return encodeURIComponent(key) + "=" + encodeURIComponent(data[key]);
+    }).join("&");
+  }
+
   form.addEventListener("submit", function(e){
     e.preventDefault();
 
-    var text = currentSummaryText();
-    var subject = encodeURIComponent("New call request: Marks Fit");
-    var body = encodeURIComponent(text);
+    var data = {};
+    form.querySelectorAll("input[name], textarea[name], select[name]").forEach(function(f){
+      data[f.name] = f.value || "";
+    });
+
     status.dataset.state = "ok";
-    status.textContent = "Opening your email app with your request...";
-    window.location.href = "mailto:" + OWNER_EMAIL + "?subject=" + subject + "&body=" + body;
+    status.textContent = "Sending your request...";
+
+    fetch("/", {
+      method: "POST",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+      body: encodeFormData(data)
+    }).then(function(res){
+      if(!res.ok) throw new Error("Bad response");
+      status.dataset.state = "ok";
+      status.textContent = "Thanks! Your request has been sent — we'll be in touch soon.";
+      form.reset();
+    }).catch(function(){
+      status.dataset.state = "error";
+      status.textContent = "Something went wrong sending your request. Please try \"Copy My Answers\" and email it to " + OWNER_EMAIL + " instead.";
+    });
   });
 
   copyBtn.addEventListener("click", function(){
